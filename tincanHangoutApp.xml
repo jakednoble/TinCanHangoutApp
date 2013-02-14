@@ -23,7 +23,10 @@
 </style>
 <body>
 
-<script src="https://hangoutsapi.talkgadget.google.com/hangouts/api/hangout.js?v=1.0" ></script>
+<!-- hangout.js is different for developer sandbox and production -->
+<script type="text/javascript" src="//hangoutsapi.talkgadget.google.com/hangouts/_/api/hangout.js?v=1.2"></script>
+<script type="text/javascript" src="https://rawgithub.com/RusticiSoftware/TinCanJS/master/build/tincan-min.js"></script>
+<script type="text/javascript" src="https://rawgithub.com/RusticiSoftware/TinCanStatementViewer/master/scripts/base64.js"></script>
 
 <h3>Tincan Hangout App</h3>
 
@@ -36,8 +39,96 @@
 <div id="outputDiv"></div>
 
 <script>
-function showTincanStatements() {
+var tinCan;
+gadgets.util.registerOnLoadHandler(init);  
 
+function log(msg) {
+	if (console && console.log) {
+		console.log("TinCanApp: " + msg);
+	}
+}
+
+function init() {
+	log("init");
+
+	// Initialize TinCan
+	//TinCan.enableDebug();	
+	/*
+	tincan = new TinCan (
+		{
+			recordStores: [
+				{
+					endpoint: "https://cloud.scorm.com/ScormEngineInterface/TCAPI/public/",
+					auth: 'Basic ' + Base64.encode('test:password')
+				}
+			]
+		}
+	);
+	*/
+	
+	// Register to be notified when the hangout API is ready
+	gapi.hangout.onApiReady.add( function(eventObj) {
+		try { 
+			if (eventObj.isApiReady) { 
+					startApp(); 
+			}
+		} catch (e) { 
+			console.log(e.stack); 
+		}
+	});
+}
+
+// Sends a TinCan Statement for this client if one hasn't yet been sent
+function startApp() {
+	log("Executing logic...");
+	//document.getElementById('showParticipants').style.visibility = 'visible';
+
+	/* DEBUG
+	var hangoutObj = gapi.hangout;
+	if (gapi)
+		log("gasi defined");
+	
+	if (gapi.hangout)
+		log("gapi.hangout defined");
+		
+	if (gapi.hangout.onParticipantsEnabled.add)
+		log("gapi.hangout.onParticipantsEnabled.add defined");
+		
+	for (var prop in gapi.hangout) {
+		log(prop);
+	}
+	*/
+	
+	
+	// Get the local participant
+	var participant = gapi.hangout.getLocalParticipant();
+	// Get their google+ id
+	var participantId = participant.person.id;
+	
+	// Check hangout's state to see if an entry has been added for this participant
+	if (gapi.hangout.data.getValue(participantId)) {
+		log("TinCan Statement has already been sent for local participant.");
+		return;
+	} else {
+		log("Participant needs to generate TinCan statement.");
+	}
+	
+	// Construct a TinCan statement for this user
+	var statement = buildTinCanStatement();
+	
+}
+
+// Builds a TinCan statement for the local paticipant attending this hangout
+function buildTinCanStatement() {
+	var participant = gapi.hangout.getLocalParticipant();
+	for (var prop in participant.person) {
+		log(prop);
+	}
+	log(participant.person.id);
+}
+
+function showTincanStatements() {
+/*
   var participants = gapi.hangout.getParticipants();
 
   var retVal = '<p>Participants: </p><ul>';
@@ -56,29 +147,8 @@ function showTincanStatements() {
   var div = document.getElementById('outputDiv');
 
   div.innerHTML = retVal;
-  
-}
-
-function log(msg) {
-	if (console && console.log) {
-		console.log("TinCanApp: " + msg);
-	}
-}
-
-function init() {
-	log("init");
-
-	function apiReady(eventObj) {
-		if (eventObj.isApiReady) {
-			log("Hangout API is ready.");
-			document.getElementById('showParticipants').style.visibility = 'visible';
-		}
-	}
-	
-  gapi.hangout.onApiReady.add(apiReady);
-}
-                                                  
-gadgets.util.registerOnLoadHandler(init);
+  */
+}                                                
 </script>
 </body>
 
