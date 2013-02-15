@@ -4,28 +4,13 @@
     <Require feature="rpc"/>
   </ModulePrefs>
   <Content type="html"><![CDATA[
-<html>
 <style type="text/css">
-<!--
-.button {
-  border-radius: 3px;
-  -moz-border-radius: 3px;
-  background: -webkit-gradient(linear, left top, left bottom, from(#fff), to(#ddd));
-  background: -moz-linear-gradient(top, #fff, #ddd);  
-  border: 1px solid #bbb;
-}
 
-.button:active {
-	background: -webkit-gradient(linear, left top, left bottom, from(#aaa), to(#333)); 
-	background: -moz-linear-gradient(bottom, #ddd, #aaa); }
-
--->
 </style>
-<body>
 
 <!-- hangout.js is different for developer sandbox and production -->
 <script type="text/javascript" src="//hangoutsapi.talkgadget.google.com/hangouts/_/api/hangout.js?v=1.2"></script>
-<script type="text/javascript" src="https://rawgithub.com/RusticiSoftware/TinCanJS/master/build/tincan-min.js"></script>
+<script type="text/javascript" src="https://rawgithub.com/RusticiSoftware/TinCanJS/master/build/tincan.js"></script>
 <script type="text/javascript" src="https://rawgithub.com/RusticiSoftware/TinCanStatementViewer/master/scripts/base64.js"></script>
 
 <h3>Tincan Hangout App</h3>
@@ -53,8 +38,7 @@ function init() {
 
 	// Initialize TinCan
 	//TinCan.enableDebug();	
-	/*
-	tincan = new TinCan (
+	tinCan = new TinCan (
 		{
 			recordStores: [
 				{
@@ -64,6 +48,14 @@ function init() {
 			]
 		}
 	);
+	
+	// IE8 Compatibility
+	/*
+	if (!Date.now) {
+		Date.now = function now() {
+			return +(new Date);
+		};
+	}
 	*/
 	
 	// Register to be notified when the hangout API is ready
@@ -82,32 +74,15 @@ function init() {
 function startApp() {
 	log("Executing logic...");
 	//document.getElementById('showParticipants').style.visibility = 'visible';
-
-	/* DEBUG
-	var hangoutObj = gapi.hangout;
-	if (gapi)
-		log("gasi defined");
 	
-	if (gapi.hangout)
-		log("gapi.hangout defined");
-		
-	if (gapi.hangout.onParticipantsEnabled.add)
-		log("gapi.hangout.onParticipantsEnabled.add defined");
-		
-	for (var prop in gapi.hangout) {
-		log(prop);
-	}
-	*/
-	
-	
-	// Get the local participant
+	// Get the local participant's google+ id
 	var participant = gapi.hangout.getLocalParticipant();
-	// Get their google+ id
 	var participantId = participant.person.id;
 	
-	// Check hangout's state to see if an entry has been added for this participant
+	// Check hangout's state to see if this participant has already sent a TinCan statement for attending
 	if (gapi.hangout.data.getValue(participantId)) {
 		log("TinCan Statement has already been sent for local participant.");
+		// If app reqs expand to show the statement to the user, code should branch to retrieve it here
 		return;
 	} else {
 		log("Participant needs to generate TinCan statement.");
@@ -115,16 +90,84 @@ function startApp() {
 	
 	// Construct a TinCan statement for this user
 	var statement = buildTinCanStatement();
+	log("TinCan statement built.");
 	
+	// Send the statement
+	tinCan.sendStatement(statement, 
+		function(err, xhr) {
+			if (err === null) {
+				log("Statement sent successfully!");
+				// Mark participant as having sent statement in the hangout's state
+				gapi.hangout.data.setValue(participantId, "true");
+			} else {
+				log("There was an error sending the statement:");
+				log(err);
+			}
+		}
+	);
+
+	log("Done!");
 }
 
 // Builds a TinCan statement for the local paticipant attending this hangout
 function buildTinCanStatement() {
+	log("Getting participant...");
 	var participant = gapi.hangout.getLocalParticipant();
-	for (var prop in participant.person) {
-		log(prop);
+	
+	log("Getting participant name...");
+	var actorName = participant.person.displayName;
+	var actorAccountHomePage = "https://plus.google.com";
+	log("Getting participant id...");
+	var actorAccountId = participant.person.id;
+	log("Generating activity URI...");
+	var timestamp = Date.now();
+	var activityUri = generateActivityUri(timestamp);
+	
+	var statement = new TinCan.Statement( {
+			actor: {
+				objectType: "Agent",
+				name: actorName,
+				account: {
+					homePage: actorAccountHomePage,
+					name: actorAccountId
+				}
+			},
+			verb: {
+				id: "http://adlnet.gov/expapi/verbs/attended",
+				display: {"en-US": "attended"}
+			},
+			object: {
+				objectType: "Activity",
+				id: activityUri,
+				definition: {
+					name: {"en-US": "Google Hangout"}
+				}
+			}
+		});
+	
+	return statement;
+}
+
+// Generates a unique and exclusive URI for this hangout room. Uses the given TinCan statement if provided.
+// Essentially, the resulting URI consists of the hangout URL concatenated with a query string
+// containing a timestamp of the first statement sent from the hangout, in epoch time.
+function generateActivityUri(defaultTimestamp) {
+	// Check to see if the ActivityTimestamp key has been set in the hangout state
+	// NOTE: Possible race condition
+	log("Getting activity timestamp...");
+	var activityTimestamp = gapi.hangout.data.getValue("ActivityTimestamp");
+	log("Checking activity timestamp...");
+	if (! activityTimestamp) {
+		// This participant is the first to generate the activity uri and must set up the timestamp.
+		log("Activity timestamp doesn't exist. Creating...");
+		activityTimestamp = defaultTimestamp;
+		log("Setting activity timestamp...");
+		gapi.hangout.data.setValue("ActivityTimestamp", activityTimestamp.toString());
 	}
-	log(participant.person.id);
+	
+	var activityUri = gapi.hangout.getHangoutUrl() + "?time=" + activityTimestamp;
+	log("activityUri created successfully");
+	return activityUri;
 }
 
 function showTincanStatements() {
@@ -150,7 +193,6 @@ function showTincanStatements() {
   */
 }                                                
 </script>
-</body>
 
 ]]>
 </Content>
