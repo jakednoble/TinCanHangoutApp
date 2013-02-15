@@ -7,15 +7,13 @@
 <script type="text/javascript" src="https://rawgithub.com/RusticiSoftware/TinCanJS/master/build/tincan.js"></script>
 <script type="text/javascript" src="https://rawgithub.com/RusticiSoftware/TinCanStatementViewer/master/scripts/base64.js"></script>
 
-<h3>Tincan Hangout App</h3>
+<h4>Tincan Hangout Attendance App</h4>
 
-<p>
-<input class="button" type="button" value="Show TinCan statements!" id="showParticipants" 
-    style="visibility:hidden;"
-    onClick="showTincanStatements()"/>
-</p>
-
-<div id="outputDiv"></div>
+<a id="activityLink" target="_blank" href=""></a>
+<br />
+<br />
+<hr/>
+<div id="statementStatus"></div>
 
 <script>
 var tinCan;
@@ -44,13 +42,11 @@ function init() {
 	);
 	
 	// IE8 Compatibility
-	/*
 	if (!Date.now) {
 		Date.now = function now() {
 			return +(new Date);
 		};
 	}
-	*/
 	
 	// Register to be notified when the hangout API is ready
 	gapi.hangout.onApiReady.add( function(eventObj) {
@@ -69,6 +65,14 @@ function startApp() {
 	log("Executing logic...");
 	//document.getElementById('showParticipants').style.visibility = 'visible';
 	
+	// Display link to a query for this activity on the statement viewer.
+	var activityLink = document.getElementById("activityLink");
+	activityLink.innerHTML = "View this activity with the TinCan Statement Viewer!";
+	activityLink.setAttribute("href", "http://tincanapi.com/statement-viewer/?activityId=" + buildActivityUri());
+	
+	// Display some loading text for the TinCan statement
+	document.getElementById("statementStatus").innerHTML = "<p>Sending attendance statement...</p>";
+	
 	// Get the local participant's google+ id
 	var participant = gapi.hangout.getLocalParticipant();
 	var participantId = participant.person.id;
@@ -77,6 +81,7 @@ function startApp() {
 	if (gapi.hangout.data.getValue(participantId)) {
 		log("TinCan Statement has already been sent for local participant.");
 		// If app reqs expand to show the statement to the user, code should branch to retrieve it here
+		document.getElementById("statementStatus").innerHTML = "<p>Your TinCan attendance statement was sent previously.</p>";
 		return;
 	} else {
 		log("Participant needs to generate TinCan statement.");
@@ -93,9 +98,11 @@ function startApp() {
 				log("Statement sent successfully!");
 				// Mark participant as having sent statement in the hangout's state
 				gapi.hangout.data.setValue(participantId, "true");
+				document.getElementById("statementStatus").innerHTML = "<p>Your TinCan attendance statement has just been sent!</p>";
 			} else {
 				log("There was an error sending the statement:");
 				log(err);
+				document.getElementById("statementStatus").innerHTML = "<p>There was an error trying your TinCan attendance statement.</p>";
 			}
 		}
 	);
@@ -105,17 +112,12 @@ function startApp() {
 
 // Builds a TinCan statement for the local paticipant attending this hangout
 function buildTinCanStatement() {
-	log("Getting participant...");
 	var participant = gapi.hangout.getLocalParticipant();
-	
-	log("Getting participant name...");
 	var actorName = participant.person.displayName;
 	var actorAccountHomePage = "https://plus.google.com";
-	log("Getting participant id...");
 	var actorAccountId = participant.person.id;
-	log("Generating activity URI...");
-	var timestamp = Date.now();
-	var activityUri = generateActivityUri(timestamp);
+	
+	var activityUri = buildActivityUri();
 	
 	var statement = new TinCan.Statement( {
 			actor: {
@@ -138,56 +140,32 @@ function buildTinCanStatement() {
 				}
 			}
 		});
-		
-	// TODO: Sync timestamps?
-	// Display message?
 	
 	return statement;
 }
 
-// Generates a unique and exclusive URI for this hangout room. Uses the given TinCan statement if provided.
-// Essentially, the resulting URI consists of the hangout URL concatenated with a query string
-// containing a timestamp of the first statement sent from the hangout, in epoch time.
-function generateActivityUri(defaultTimestamp) {
-	// Check to see if the ActivityTimestamp key has been set in the hangout state
+// Generates a unique and exclusive URI for this hangout room.
+// Essentially, this function appends a '/' followed by a timestamp (in epoch time) to the hangout URL.
+// The first time this function is called, it sets a timestamp in the hangout's state that all subsequent calls will use.
+// In theory this could result in a race condition if the first two (or more) participants to join a room do so at 
+// approximately the same time, but in practice this is very unlikely.
+function buildActivityUri() {
+	log("Synthesizing activityUri...");
+	// Check to see if the HangoutTimestamp key has been set in the hangout state
 	// NOTE: Possible race condition
-	log("Getting activity timestamp...");
-	var activityTimestamp = gapi.hangout.data.getValue("ActivityTimestamp");
-	log("Checking activity timestamp...");
-	if (! activityTimestamp) {
+	var hangoutTimestamp = gapi.hangout.data.getValue("HangoutTimestamp");
+	if (! hangoutTimestamp) {
 		// This participant is the first to generate the activity uri and must set up the timestamp.
-		log("Activity timestamp doesn't exist. Creating...");
-		activityTimestamp = defaultTimestamp;
-		log("Setting activity timestamp...");
-		gapi.hangout.data.setValue("ActivityTimestamp", activityTimestamp.toString());
+		log("Initializing hangout timestamp.");
+		hangoutTimestamp = Date.now();
+		gapi.hangout.data.setValue("HangoutTimestamp", hangoutTimestamp.toString());
+	} else {
+		log("Found existing hangout timestamp.");
 	}
 	
-	var activityUri = gapi.hangout.getHangoutUrl() + "?time=" + activityTimestamp;
-	log("activityUri created successfully");
+	var activityUri = gapi.hangout.getHangoutUrl() + "/" + hangoutTimestamp;
+	log("activityUri successfully synthesized.");
 	log(activityUri);
 	return activityUri;
-}
-
-function showTincanStatements() {
-/*
-  var participants = gapi.hangout.getParticipants();
-
-  var retVal = '<p>Participants: </p><ul>';
-
-  for (var index in participants) {
-    var participant = participants[index];
-
-    if (!participant.person) {
-      retVal += '<li>A participant not running this app</li>';
-    }
-    retVal += '<li>' + participant.person.displayName + '</li>';
-  }
-
-  retVal += '</ul>';
-
-  var div = document.getElementById('outputDiv');
-
-  div.innerHTML = retVal;
-  */
-}                                                
+}                                         
 </script>
