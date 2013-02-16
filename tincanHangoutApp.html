@@ -65,10 +65,13 @@ function startApp() {
 	log("Executing logic...");
 	//document.getElementById('showParticipants').style.visibility = 'visible';
 	
-	// Display link to a query for this activity on the statement viewer.
+	// Build the activity URL now so that the statement viewer link can be displayed asap.
+	var activityUri = buildActivityUri();
+	
+	// Display statement viewer link with query for this hangout's activity id.
 	var activityLink = document.getElementById("activityLink");
 	activityLink.innerHTML = "View this activity with the TinCan Statement Viewer!";
-	activityLink.setAttribute("href", "http://tincanapi.com/statement-viewer/?activityId=" + buildActivityUri());
+	activityLink.setAttribute("href", "http://tincanapi.com/statement-viewer/?activityId=" + activityUri);
 	
 	// Display some loading text for the TinCan statement
 	document.getElementById("statementStatus").innerHTML = "<p>Sending attendance statement...</p>";
@@ -88,7 +91,7 @@ function startApp() {
 	}
 	
 	// Construct a TinCan statement for this user
-	var statement = buildTinCanStatement();
+	var statement = buildTinCanStatement(activityUri);
 	log("TinCan statement built.");
 	
 	// Send the statement
@@ -110,14 +113,12 @@ function startApp() {
 	log("Done!");
 }
 
-// Builds a TinCan statement for the local paticipant attending this hangout
-function buildTinCanStatement() {
+// Builds a TinCan statement for the local paticipant attending this hangout, requires a specified activityId
+function buildTinCanStatement(activityUri) {
 	var participant = gapi.hangout.getLocalParticipant();
 	var actorName = participant.person.displayName;
 	var actorAccountHomePage = "https://plus.google.com";
 	var actorAccountId = participant.person.id;
-	
-	var activityUri = buildActivityUri();
 	
 	var statement = new TinCan.Statement( {
 			actor: {
@@ -136,7 +137,8 @@ function buildTinCanStatement() {
 				objectType: "Activity",
 				id: activityUri,
 				definition: {
-					name: {"en-US": "Google Hangout"}
+					name: {"en-US": "Google Hangout"},
+					type: "https://talkgadget.google.com/hangouts"
 				}
 			}
 		});
@@ -147,8 +149,8 @@ function buildTinCanStatement() {
 // Generates a unique and exclusive URI for this hangout room.
 // Essentially, this function appends a '/' followed by a timestamp (in epoch time) to the hangout URL.
 // The first time this function is called, it sets a timestamp in the hangout's state that all subsequent calls will use.
-// In theory this could result in a race condition if the first two (or more) participants to join a room do so at 
-// approximately the same time, but in practice this is very unlikely.
+// BUG?: Could result in a race condition if the first two (or more) participants join a room at approximately the same time,
+// or if this app makes multiple calls to this function during its startup execution.
 function buildActivityUri() {
 	log("Synthesizing activityUri...");
 	// Check to see if the HangoutTimestamp key has been set in the hangout state
@@ -166,6 +168,7 @@ function buildActivityUri() {
 	var activityUri = gapi.hangout.getHangoutUrl() + "/" + hangoutTimestamp;
 	log("activityUri successfully synthesized.");
 	log(activityUri);
+	
 	return activityUri;
 }                                         
 </script>
