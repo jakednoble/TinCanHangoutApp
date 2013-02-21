@@ -34,8 +34,8 @@ function init() {
 		{
 			recordStores: [
 				{
-					endpoint: "https://cloud.scorm.com/ScormEngineInterface/TCAPI/public/",
-					auth: 'Basic ' + Base64.encode('test:password')
+					endpoint: "http://rslrstest.appspot.com/TCAPI/",
+					auth: 'Basic ' + Base64.encode('root:scr0m')
 				}
 			]
 		}
@@ -71,7 +71,7 @@ function startApp() {
 	// Display statement viewer link with query for this hangout's activity id.
 	var activityLink = document.getElementById("activityLink");
 	activityLink.innerHTML = "View this activity with the TinCan Statement Viewer!";
-	activityLink.setAttribute("href", "http://tincanapi.com/statement-viewer/?activityId=" + activityUri);
+	activityLink.setAttribute("href", "http://rslrstest.appspot.com/tools/StatementViewer/index.jsp?activityId=" + activityUri);
 	
 	// Display some loading text for the TinCan statement
 	document.getElementById("statementStatus").innerHTML = "<p>Sending attendance statement...</p>";
@@ -105,7 +105,7 @@ function startApp() {
 			} else {
 				log("There was an error sending the statement:");
 				log(err);
-				document.getElementById("statementStatus").innerHTML = "<p>There was an error trying your TinCan attendance statement.</p>";
+				document.getElementById("statementStatus").innerHTML = "<p>There was an error when trying to send your TinCan attendance statement.</p>";
 			}
 		}
 	);
